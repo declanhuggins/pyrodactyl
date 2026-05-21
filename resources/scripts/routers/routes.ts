@@ -1,5 +1,4 @@
 import {
-    Box,
     BranchesDown,
     ClockArrowRotateLeft,
     CloudArrowUpIn,
@@ -11,10 +10,11 @@ import {
     Magnifier,
     PencilToLine,
     Persons,
-    Terminal,
 } from '@gravity-ui/icons';
 import type { ComponentType, SVGProps } from 'react';
 import { lazy } from 'react';
+
+import { SoftwareRedirect, StartupRedirect } from '@/routers/LegacyRedirects';
 
 import AccountApiContainer from '@/components/dashboard/AccountApiContainer';
 import AccountOverviewContainer from '@/components/dashboard/AccountOverviewContainer';
@@ -31,11 +31,10 @@ import LegacyModsRedirect from '@/components/server/mods/LegacyModsRedirect';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
 import ScheduleContainer from '@/components/server/schedules/ScheduleContainer';
 import SettingsContainer from '@/components/server/settings/SettingsContainer';
-import ShellContainer from '@/components/server/shell/ShellContainer';
-import StartupContainer from '@/components/server/startup/StartupContainer';
 import CreateUserContainer from '@/components/server/users/CreateUserContainer';
 import EditUserContainer from '@/components/server/users/EditUserContainer';
 import UsersContainer from '@/components/server/users/UsersContainer';
+
 
 // Each of the router files is already code split out appropriately — so
 // all the items above will only be loaded in when that router is loaded.
@@ -261,15 +260,6 @@ const routes: Routes = {
             isSubRoute: true,
         },
         {
-            route: 'startup/*',
-            path: 'startup',
-            permission: ['startup.read', 'startup.update', 'startup.docker-image'],
-            name: 'Startup',
-            component: StartupContainer,
-            icon: Terminal,
-            end: true,
-        },
-        {
             route: 'schedules/*',
             path: 'schedules',
             permission: 'schedule.*',
@@ -286,13 +276,52 @@ const routes: Routes = {
             isSubRoute: true,
         },
         {
+            // Consolidated Settings entry. The page renders General +
+            // Startup + Software as stacked sections — the previous
+            // dedicated Startup and Software sidebar items have been
+            // folded in here. Permission is the union of what each
+            // section needs so users with any one of them can still
+            // reach the page; per-section content is gated by `<Can>`
+            // checks inside the page itself.
             route: 'settings/*',
             path: 'settings',
-            permission: ['settings.*', 'file.sftp'],
+            permission: [
+                'settings.*',
+                'file.sftp',
+                'startup.read',
+                'startup.update',
+                'startup.docker-image',
+                'startup.software',
+            ],
             name: 'Settings',
             component: SettingsContainer,
             icon: Gear,
             end: true,
+            // Legacy /startup and /shell URLs both deep-link to a
+            // section on the Settings page (see the redirect routes
+            // below), so anchor-style paths under /settings should also
+            // highlight this entry.
+            highlightPatterns: [/^\/server\/[^/]+\/settings(\/.*)?$/],
+        },
+        {
+            // Legacy /startup → /settings#startup. Hidden from the
+            // sidebar; the SettingsContainer mounts at /settings and
+            // scrolls to the matching section anchor on hash arrival.
+            // The Navigate component handles the actual redirect.
+            route: 'startup/*',
+            permission: ['startup.read', 'startup.update', 'startup.docker-image'],
+            name: undefined,
+            component: StartupRedirect,
+            isSubRoute: true,
+        },
+        {
+            // Legacy /shell → /settings#software. Same shape as the
+            // /startup redirect above.
+            route: 'shell/*',
+            permission: 'startup.software',
+            name: undefined,
+            component: SoftwareRedirect,
+            isSubRoute: true,
         },
         {
             route: 'activity/*',
@@ -301,15 +330,6 @@ const routes: Routes = {
             name: 'Activity',
             component: ServerActivityLogContainer,
             icon: PencilToLine,
-            end: true,
-        },
-        {
-            route: 'shell/*',
-            path: 'shell',
-            permission: 'startup.software',
-            name: 'Software',
-            component: ShellContainer,
-            icon: Box,
             end: true,
         },
     ],
